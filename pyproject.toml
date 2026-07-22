@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mangaforge-studio"
+version = "0.1.0"
+description = "MangaForge AI Enterprise — plataforma offline de criação de mangás e ilustrações."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.6",
+    "pillow>=10.2",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "torch>=2.2",
+    "diffusers>=0.27",
+    "transformers>=4.39",
+    "accelerate>=0.28",
+    "safetensors>=0.4",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "httpx>=0.27",
+]
+
+[tool.setuptools.packages.find]
+include = ["mangaforge_studio*"]
+
+[tool.pytest.ini_options]
+testpaths = ["mangaforge_studio/tests"]
+addopts = "-v"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]

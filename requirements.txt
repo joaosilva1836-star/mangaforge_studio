@@ -1,0 +1,16 @@
+# Núcleo (sempre necessário)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+pillow>=10.2
+
+# Geração de imagem (necessário apenas se USE_MOCK_PIPELINE=False)
+torch>=2.2
+diffusers>=0.27
+transformers>=4.39
+accelerate>=0.28
+safetensors>=0.4
+xformers>=0.0.25  # opcional, acelera atenção em GPUs NVIDIA
+
+# Testes
+pytest>=8.0
