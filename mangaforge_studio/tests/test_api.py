@@ -12,6 +12,13 @@ from mangaforge_studio.api.main import app
 client = TestClient(app)
 
 
+def test_dashboard_served_at_root() -> None:
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "MangaForge Studio" in resp.text
+
+
 def test_health() -> None:
     resp = client.get("/health")
     assert resp.status_code == 200

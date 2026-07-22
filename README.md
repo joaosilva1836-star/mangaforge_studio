@@ -37,13 +37,20 @@ Rode a partir da raiz do repositório:
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"        # núcleo + pytest/ruff
 uvicorn mangaforge_studio.api.main:app --reload
-# Swagger em http://localhost:8000/docs
+# Dashboard em http://localhost:8000/  (servido pela própria API)
+# Swagger  em http://localhost:8000/docs
 ```
+
+O dashboard é servido na raiz (`/`): ao abri-lo pela URL da API (ex.: a
+URL do pod no RunPod) ele já detecta a origem e conecta sozinho — sem
+precisar digitar a URL nem abrir o HTML manualmente.
 
 ## Rodando com GPU NVIDIA (produção)
 
 1. Instale as deps de GPU: `pip install -e ".[gpu]"` (ou `pip install -r requirements.txt`)
-2. Em `api/main.py`, mude `USE_MOCK_PIPELINE = False`
+2. Suba a API normalmente. O pipeline **real (SDXL) liga sozinho** quando
+   há GPU CUDA + `diffusers` disponíveis; senão usa o mock. Para forçar,
+   use a variável de ambiente `MANGAFORGE_MOCK=0` (real) ou `=1` (mock).
 3. Na subida, o **Hardware Manager** detecta a GPU/VRAM e o **AI
    Optimizer** escolhe automaticamente o perfil (8/12/16/24/48 GB),
    a precisão (FP16/BF16) e demais parâmetros — veja `GET /hardware`.

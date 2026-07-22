@@ -17,6 +17,7 @@ import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from mangaforge_studio.api.schemas import (
@@ -42,7 +43,34 @@ from mangaforge_studio.services.export_service import ExportService
 from mangaforge_studio.services.page_service import PageService
 from mangaforge_studio.services.storyboard_service import StoryboardService
 
-USE_MOCK_PIPELINE = True
+
+def _resolve_use_mock() -> bool:
+    """Decide automaticamente entre o pipeline real (SDXL via diffusers) e o
+    mock, sem exigir edição de código:
+
+    - Se a variável de ambiente ``MANGAFORGE_MOCK`` estiver definida, ela manda
+      (``1/true/yes/on`` força mock; ``0/false/no/off`` força o pipeline real).
+    - Caso contrário, usa o pipeline real quando houver GPU CUDA + ``diffusers``
+      disponíveis; senão cai no mock. Assim, num pod com GPU (ex.: RunPod) a
+      geração real liga sozinha, e numa máquina sem GPU tudo continua rodando.
+    """
+    override = os.getenv("MANGAFORGE_MOCK")
+    if override is not None:
+        return override.strip().lower() in ("1", "true", "yes", "on")
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            import importlib.util
+
+            if importlib.util.find_spec("diffusers") is not None:
+                return False
+    except Exception:  # noqa: BLE001 — qualquer falha aqui significa "sem GPU utilizável"
+        pass
+    return True
+
+
+USE_MOCK_PIPELINE = _resolve_use_mock()
 
 if USE_MOCK_PIPELINE:
     from mangaforge_studio.infra.mock_pipeline import MockPipelineFactory as _PipelineFactoryImpl
@@ -68,6 +96,16 @@ app.add_middleware(
 
 os.makedirs("output", exist_ok=True)
 app.mount("/files", StaticFiles(directory="output"), name="files")
+
+# Serve o dashboard na raiz — abrir a URL do pod (ex.: RunPod) já mostra a UI
+# funcional, sem precisar abrir o index.html manualmente nem digitar a URL da API
+# (o front detecta a própria origem). O arquivo fica dentro do pacote.
+_FRONTEND_INDEX = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "index.html")
+
+
+@app.get("/", include_in_schema=False)
+def dashboard() -> FileResponse:
+    return FileResponse(_FRONTEND_INDEX)
 
 
 def to_public_url(local_path: str | None) -> str | None:

@@ -47,8 +47,8 @@ class PageService:
                 request = GenerationRequest(
                     prompt=panel.prompt,
                     lora_paths=lora_paths,
-                    width=int(page.resolution[0] * panel.layout_box[2]),
-                    height=int(page.resolution[1] * panel.layout_box[3]),
+                    width=self._round_to_multiple_of_8(page.resolution[0] * panel.layout_box[2]),
+                    height=self._round_to_multiple_of_8(page.resolution[1] * panel.layout_box[3]),
                 )
                 result = pipeline.generate(request)
                 panel.image_path = result.image_path
@@ -63,3 +63,12 @@ class PageService:
 
         page.status = AssetStatus.READY
         return self._pages.save(page)
+
+    @staticmethod
+    def _round_to_multiple_of_8(value: float, minimum: int = 64) -> int:
+        """SDXL/diffusers exigem largura e altura múltiplas de 8; layouts em
+        frações (ex.: 0.34 de 1536) geram valores quebrados que travam a
+        geração real. Arredonda para o múltiplo de 8 mais próximo, com um
+        piso para evitar dimensões degeneradas."""
+        rounded = int(round(value / 8.0)) * 8
+        return max(minimum, rounded)
