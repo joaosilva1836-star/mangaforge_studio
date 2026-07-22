@@ -2,8 +2,9 @@
 
 Primeiros módulos do MangaForge AI Enterprise: **Hardware Manager**,
 **AI Optimizer** e o **Studio** de produção (geração de **personagens
-consistentes**, **storyboard**, **páginas de mangá** e **exportação**
-em PDF/CBZ/PNG/WEBP). Roda 100% offline.
+consistentes**, **storyboard**, **páginas de mangá** e **exportação
+profissional** em PNG/WEBP/JPG/PDF/CBZ/SVG com DPI e tamanhos de
+impressão). Roda 100% offline.
 
 ## Arquitetura (Clean Architecture)
 
@@ -60,7 +61,14 @@ precisar digitar a URL nem abrir o HTML manualmente.
 
 - **Hardware Manager** (`hardware/detector.py`): detecção de GPU/CUDA/VRAM/RAM/CPU via `nvidia-smi` + `torch.cuda`.
 - **AI Optimizer** (`hardware/optimizer.py`): escolha automática de perfil (8/12/16/24/48 GB) e precisão (FP16/BF16).
-- **Studio**: personagens consistentes, storyboard → páginas, composição e exportação (PDF/CBZ/PNG/WEBP).
+- **Studio**: personagens consistentes, storyboard → páginas, composição e exportação.
+- **MangaForge Export** (`services/export_service.py`): exportação profissional —
+  PNG/WEBP/JPG/PDF/CBZ/SVG, DPI 72/150/300/600/1200, tamanhos A4/A5/B5/Letter/custom,
+  orientação, margens, sangria, escala, tons de cinza, limpeza inteligente (denoise +
+  realce de linhas) e aceleração CUDA quando há GPU (senão CPU automático). Nomeação
+  `Capitulo_001_Pagina_001` e saída organizada em `Projeto/Export/{PNG,PDF,WEBP,CBZ,JPG,SVG,MASTER}/`.
+  Endpoints: `GET /export/options`, `POST /export/page`, `POST /export/chapter`,
+  `POST /export/manga` (lote). SVG hoje embute o raster (vetorização real ainda pendente).
 - Endpoint `GET /hardware` expõe o que foi detectado e o perfil escolhido.
 
 ## O que ainda falta (próximos módulos da spec)
@@ -69,7 +77,7 @@ precisar digitar a URL nem abrir o HTML manualmente.
 - **MangaForge Brain**: agente de orquestração/relatórios/otimização contínua
 - **Sistema de Análise**: extração automática de Perfil de Estilo
 - Upscale real (Real-ESRGAN), inpainting/outpainting reais (hoje são stubs em `diffusion_pipeline.py`)
-- Vetorização para exportação SVG
+- Vetorização real para SVG (hoje o SVG embute o raster)
 - FLUX pipeline (stub em `DiffusersPipelineFactory.create`)
 
 ## Testando

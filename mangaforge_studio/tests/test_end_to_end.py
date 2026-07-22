@@ -47,7 +47,7 @@ def test_full_pipeline(tmp_data_dir):
     character_service = CharacterService(character_repo, style_repo, pipeline_factory, output_dir=f"{tmp_data_dir}/char_out")
     storyboard_service = StoryboardService(scene_repo, page_repo)
     page_service = PageService(page_repo, style_repo, pipeline_factory, compositor, output_dir=f"{tmp_data_dir}/pages_out")
-    export_service = ExportService(output_dir=f"{tmp_data_dir}/exports")
+    export_service = ExportService(project_dir=f"{tmp_data_dir}/exports")
 
     # 1. Style profile
     style = StyleProfile(name="shonen-ink", base_model="sdxl")

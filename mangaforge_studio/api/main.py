@@ -24,10 +24,23 @@ from mangaforge_studio.api.schemas import (
     BuildChapterRequest,
     CharacterResponse,
     CreateCharacterRequest,
+    ExportChapterProRequest,
     ExportChapterRequest,
+    ExportMangaRequest,
+    ExportOptionsResponse,
+    ExportPageRequest,
+    ExportResultResponse,
+    ExportSettingsSchema,
     GenerateReferenceSheetRequest,
 )
-from mangaforge_studio.domain.entities import Chapter, ExportFormat
+from mangaforge_studio.domain.entities import (
+    STANDARD_DPIS,
+    Chapter,
+    ExportFormat,
+    ExportSettings,
+    Orientation,
+    PageSize,
+)
 from mangaforge_studio.domain.exceptions import MangaForgeError
 from mangaforge_studio.hardware.detector import HardwareDetector
 from mangaforge_studio.hardware.optimizer import AIOptimizer
@@ -226,8 +239,102 @@ def generate_page(page_id: str, style_profile_id: str | None = None):
     }
 
 
+def _build_export_settings(schema: ExportSettingsSchema) -> ExportSettings:
+    """Converte o schema da API (strings) no objeto de domínio ExportSettings,
+    validando formato/tamanho/orientação com mensagens de erro claras."""
+    try:
+        fmt = ExportFormat(schema.format)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Formato inválido: {schema.format}") from exc
+    try:
+        page_size = PageSize(schema.page_size)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Tamanho inválido: {schema.page_size}") from exc
+    try:
+        orientation = Orientation(schema.orientation)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Orientação inválida: {schema.orientation}") from exc
+    if page_size == PageSize.CUSTOM and not schema.custom_size_mm:
+        raise HTTPException(status_code=400, detail="page_size=custom exige custom_size_mm")
+    return ExportSettings(
+        fmt=fmt,
+        dpi=schema.dpi,
+        page_size=page_size,
+        orientation=orientation,
+        custom_size_mm=schema.custom_size_mm,
+        quality=schema.quality,
+        lossless=schema.lossless,
+        scale=schema.scale,
+        margins_mm=schema.margins_mm,
+        bleed_mm=schema.bleed_mm,
+        grayscale=schema.grayscale,
+        smart=schema.smart,
+        use_gpu=schema.use_gpu,
+    )
+
+
+def _export_result(output_path: str, settings: ExportSettings, schema: ExportSettingsSchema) -> ExportResultResponse:
+    from mangaforge_studio.infra.image_processor import create_image_processor
+
+    return ExportResultResponse(
+        output_path=output_path,
+        file_url=to_public_url(output_path),
+        backend=create_image_processor(settings.use_gpu).backend,
+        settings=schema,
+    )
+
+
+@app.get("/export/options", response_model=ExportOptionsResponse, tags=["export"])
+def export_options():
+    """Formatos, DPIs, tamanhos e orientações suportados pelo MangaForge Export."""
+    return ExportOptionsResponse(
+        formats=[f.value for f in ExportFormat],
+        dpis=list(STANDARD_DPIS),
+        page_sizes=[s.value for s in PageSize],
+        orientations=[o.value for o in Orientation],
+    )
+
+
+@app.post("/export/page", response_model=ExportResultResponse, tags=["export"])
+def export_page_pro(payload: ExportPageRequest):
+    """Exporta uma página única com qualidade profissional (DPI, tamanho,
+    margens, sangria, tons de cinza, limpeza inteligente, GPU/CPU)."""
+    settings = _build_export_settings(payload.settings)
+    output_path = export_service.export_page(
+        payload.source_image_path, payload.chapter_number, payload.page_number, settings
+    )
+    return _export_result(output_path, settings, payload.settings)
+
+
+@app.post("/export/chapter", response_model=ExportResultResponse, tags=["export"])
+def export_chapter_pro(payload: ExportChapterProRequest):
+    """Exporta um capítulo inteiro. PDF/CBZ viram um arquivo; formatos de
+    imagem/SVG geram um arquivo por página numa pasta do capítulo."""
+    settings = _build_export_settings(payload.settings)
+    output_path = export_service.export_chapter(
+        payload.page_image_paths, payload.chapter_number, settings
+    )
+    return _export_result(output_path, settings, payload.settings)
+
+
+@app.post("/export/manga", tags=["export"])
+def export_manga_pro(payload: ExportMangaRequest):
+    """Exporta o mangá completo (vários capítulos) em lote."""
+    settings = _build_export_settings(payload.settings)
+    outputs = export_service.export_manga(payload.chapters, settings)
+    return {
+        "outputs": [
+            {"output_path": p, "file_url": to_public_url(p)} for p in outputs
+        ],
+        "settings": payload.settings,
+    }
+
+
+# Rota legada (compatibilidade). Registrada por último de propósito: como usa um
+# path param (`{chapter_title}`), se viesse antes ela capturaria /export/page,
+# /export/chapter, etc. A ordem de declaração é a ordem de resolução no FastAPI.
 @app.post("/export/{chapter_title}", tags=["export"])
-def export_chapter(chapter_title: str, payload: ExportChapterRequest):
+def export_chapter_legacy(chapter_title: str, payload: ExportChapterRequest):
     fake_chapter = Chapter(title=chapter_title)
     try:
         fmt = ExportFormat(payload.format)
@@ -235,7 +342,7 @@ def export_chapter(chapter_title: str, payload: ExportChapterRequest):
         raise HTTPException(status_code=400, detail=f"Formato inválido: {payload.format}") from exc
 
     output_path = export_service.export(fake_chapter, payload.page_image_paths, fmt)
-    return {"output_path": output_path}
+    return {"output_path": output_path, "file_url": to_public_url(output_path)}
 
 
 @app.get("/hardware", tags=["system"])
