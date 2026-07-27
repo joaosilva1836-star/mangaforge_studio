@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test / tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# App runtime artifacts (generated content, not source)
+/output/
+/data/
+
+# Model weights / datasets (never commit — heavy + licensing)
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

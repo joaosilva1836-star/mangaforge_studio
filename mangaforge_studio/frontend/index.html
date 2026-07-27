@@ -142,7 +142,7 @@
     margin:12px 0 4px;
   }
   label:first-child{margin-top:0;}
-  input[type=text], textarea, select{
+  input[type=text], input[type=number], textarea, select{
     width:100%;
     background:var(--text-light);
     border:2px solid var(--line);
@@ -152,6 +152,9 @@
     color:var(--text-ink);
   }
   textarea{resize:vertical; min-height:64px; font-family:'JetBrains Mono',monospace; font-size:12.5px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:0 14px;}
+  .chk{display:flex; align-items:center; gap:8px; font-size:13px;}
+  .chk input{width:auto; margin:0;}
 
   .btn{
     margin-top:14px;
@@ -196,6 +199,13 @@
 
   .hint{font-size:11.5px; color:var(--muted); margin-top:6px; font-family:'JetBrains Mono',monospace;}
 
+  .pipeline-badge{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--muted);
+    white-space:nowrap;
+  }
+
   footer{
     text-align:center;
     margin-top:40px;
@@ -220,6 +230,7 @@
       <span class="dot off" id="dot"></span>
       <input id="apiBase" type="text" placeholder="https://SEU-POD-ID-8000.proxy.runpod.net">
       <button class="btn-mini" onclick="checkHealth()">Conectar</button>
+      <span class="pipeline-badge" id="pipelineBadge"></span>
     </div>
   </header>
 
@@ -233,7 +244,7 @@
         <input type="text" id="charName" placeholder="Kaito">
         <label>Descrição visual</label>
         <textarea id="charDesc" placeholder="young ronin swordsman, spiky black hair, scar over left eye"></textarea>
-        <button class="btn" onclick="createCharacter()">Criar personagem</button>
+        <button class="btn" onclick="createCharacter(event)">Criar personagem</button>
         <div class="result empty" id="charResult">Nenhum personagem criado ainda.</div>
 
         <label>ID do personagem (para gerar reference sheet)</label>
@@ -242,7 +253,7 @@
         <textarea id="poses" placeholder="front view, neutral pose
 side view
 3/4 view, action pose"></textarea>
-        <button class="btn secondary" onclick="generateRefSheet()">Gerar reference sheet</button>
+        <button class="btn secondary" onclick="generateRefSheet(event)">Gerar reference sheet</button>
         <div class="hint">Na 1ª geração com GPU real, o modelo SDXL é baixado (~7GB) — pode demorar minutos.</div>
         <div class="result empty" id="refResult">Sem imagens ainda.</div>
         <div class="thumbs" id="refThumbs"></div>
@@ -260,7 +271,7 @@ side view
         <label>Prompts dos quadros (um por linha)</label>
         <textarea id="beatPrompts" placeholder="Kaito walking through rain, wide shot
 close up of Kaito's determined face"></textarea>
-        <button class="btn" onclick="buildChapter()">Montar capítulo</button>
+        <button class="btn" onclick="buildChapter(event)">Montar capítulo</button>
         <div class="result empty" id="chapResult">Nenhum capítulo montado ainda.</div>
       </div>
     </div>
@@ -271,7 +282,7 @@ close up of Kaito's determined face"></textarea>
       <div class="panel-body">
         <label>ID da página</label>
         <input type="text" id="pageId" placeholder="cole o page_id retornado no storyboard">
-        <button class="btn" onclick="generatePage()">Gerar página</button>
+        <button class="btn" onclick="generatePage(event)">Gerar página</button>
         <div class="result empty" id="pageResult">Nenhuma página gerada ainda.</div>
         <div class="thumbs" id="pageThumb"></div>
       </div>
@@ -281,18 +292,52 @@ close up of Kaito's determined face"></textarea>
     <div class="panel">
       <div class="panel-head"><span class="num">04</span><h2>Exportar</h2></div>
       <div class="panel-body">
-        <label>Título do capítulo (nome do arquivo)</label>
-        <input type="text" id="exportTitle" placeholder="Capitulo 1">
+        <label>Número do capítulo (nomeia Capitulo_00X_Pagina_00Y)</label>
+        <input type="number" id="exportChapterNum" value="1" min="1">
         <label>Caminhos das páginas compostas (um por linha)</label>
         <textarea id="exportPaths" placeholder="./output/pages/page_1.png"></textarea>
-        <label>Formato</label>
-        <select id="exportFormat">
-          <option value="cbz">CBZ</option>
-          <option value="pdf">PDF</option>
-          <option value="png">PNG</option>
-          <option value="webp">WEBP</option>
-        </select>
-        <button class="btn" onclick="exportChapter()">Exportar</button>
+        <div class="grid2">
+          <div>
+            <label>Formato</label>
+            <select id="exportFormat">
+              <option value="cbz">CBZ</option>
+              <option value="pdf">PDF</option>
+              <option value="png">PNG</option>
+              <option value="webp">WEBP</option>
+              <option value="jpg">JPG</option>
+              <option value="svg">SVG</option>
+            </select>
+          </div>
+          <div>
+            <label>DPI</label>
+            <select id="exportDpi">
+              <option value="72">72 (web)</option>
+              <option value="150">150</option>
+              <option value="300" selected>300 (impressão)</option>
+              <option value="600">600 (alta)</option>
+              <option value="1200">1200 (mestre)</option>
+            </select>
+          </div>
+          <div>
+            <label>Tamanho</label>
+            <select id="exportPageSize">
+              <option value="a4">A4</option>
+              <option value="a5">A5</option>
+              <option value="b5" selected>B5 (mangá)</option>
+              <option value="letter">Letter</option>
+            </select>
+          </div>
+          <div>
+            <label>Orientação</label>
+            <select id="exportOrientation">
+              <option value="portrait" selected>Retrato</option>
+              <option value="landscape">Paisagem</option>
+            </select>
+          </div>
+        </div>
+        <label class="chk"><input type="checkbox" id="exportGrayscale"> Tons de cinza (preserva hachuras)</label>
+        <label class="chk"><input type="checkbox" id="exportSmart" checked> Limpeza inteligente (denoise + linhas nítidas)</label>
+        <button class="btn" onclick="exportChapter(event)">Exportar</button>
         <div class="result empty" id="exportResult">Nada exportado ainda.</div>
       </div>
     </div>
@@ -322,18 +367,32 @@ function fullUrl(path){
 
 async function checkHealth(){
   const dot = document.getElementById('dot');
+  const badge = document.getElementById('pipelineBadge');
   try{
     const res = await fetch(apiUrl('/health'));
     const data = await res.json();
     dot.classList.remove('off'); dot.classList.add('on');
     dot.title = 'pipeline: ' + data.pipeline;
+    const label = data.pipeline === 'mock' ? 'mock (sem GPU)' : 'SDXL (GPU)';
+    badge.textContent = label + ' · ' + (data.hardware_profile || '');
   }catch(e){
     dot.classList.remove('on'); dot.classList.add('off');
+    badge.textContent = 'sem conexão';
   }
 }
 
-async function createCharacter(){
-  const btn = event.target; btn.disabled = true;
+// Ao abrir o dashboard servido pela própria API (ex.: URL do pod), preenche a
+// base com a origem atual e conecta sozinho — sem precisar digitar a URL.
+window.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('apiBase');
+  if(!input.value && /^https?:$/.test(location.protocol)){
+    input.value = location.origin;
+    checkHealth();
+  }
+});
+
+async function createCharacter(ev){
+  const btn = ev.target; btn.disabled = true;
   try{
     const res = await fetch(apiUrl('/characters'), {
       method:'POST',
@@ -350,8 +409,8 @@ async function createCharacter(){
   btn.disabled = false;
 }
 
-async function generateRefSheet(){
-  const btn = event.target; btn.disabled = true;
+async function generateRefSheet(ev){
+  const btn = ev.target; btn.disabled = true;
   const id = document.getElementById('charId').value.trim();
   const posesRaw = document.getElementById('poses').value.trim();
   const poses = posesRaw ? posesRaw.split('\n').map(s=>s.trim()).filter(Boolean) : null;
@@ -376,8 +435,8 @@ async function generateRefSheet(){
   btn.disabled = false;
 }
 
-async function buildChapter(){
-  const btn = event.target; btn.disabled = true;
+async function buildChapter(ev){
+  const btn = ev.target; btn.disabled = true;
   const prompts = document.getElementById('beatPrompts').value.trim().split('\n').map(s=>s.trim()).filter(Boolean);
   const panelsPerPage = parseInt(document.getElementById('panelsPerPage').value) || 4;
   const body = {
@@ -403,8 +462,8 @@ async function buildChapter(){
   btn.disabled = false;
 }
 
-async function generatePage(){
-  const btn = event.target; btn.disabled = true;
+async function generatePage(ev){
+  const btn = ev.target; btn.disabled = true;
   const id = document.getElementById('pageId').value.trim();
   try{
     const res = await fetch(apiUrl(`/pages/${id}/generate`), {method:'POST'});
@@ -423,16 +482,23 @@ async function generatePage(){
   btn.disabled = false;
 }
 
-async function exportChapter(){
-  const btn = event.target; btn.disabled = true;
-  const title = document.getElementById('exportTitle').value.trim() || 'capitulo';
+async function exportChapter(ev){
+  const btn = ev.target; btn.disabled = true;
+  const chapterNumber = parseInt(document.getElementById('exportChapterNum').value, 10) || 1;
   const paths = document.getElementById('exportPaths').value.trim().split('\n').map(s=>s.trim()).filter(Boolean);
-  const format = document.getElementById('exportFormat').value;
+  const settings = {
+    format: document.getElementById('exportFormat').value,
+    dpi: parseInt(document.getElementById('exportDpi').value, 10),
+    page_size: document.getElementById('exportPageSize').value,
+    orientation: document.getElementById('exportOrientation').value,
+    grayscale: document.getElementById('exportGrayscale').checked,
+    smart: document.getElementById('exportSmart').checked
+  };
   try{
-    const res = await fetch(apiUrl(`/export/${encodeURIComponent(title)}`), {
+    const res = await fetch(apiUrl('/export/chapter'), {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({page_image_paths: paths, format})
+      body: JSON.stringify({page_image_paths: paths, chapter_number: chapterNumber, settings})
     });
     const data = await res.json();
     showResult('exportResult', data, !res.ok);
